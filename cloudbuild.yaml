@@ -1,0 +1,32 @@
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:rhel-ubi9'
+      - '-t'
+      - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:latest'
+      - '--build-arg'
+      - 'USE_SLIM=true'
+      - '-f'
+      - 'Dockerfile'
+      - '.'
+    timeout: 3600s
+
+  # Push the container image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun'
+
+images:
+  - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:rhel-ubi9'
+  - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:latest'
+
+options:
+  machineType: 'E2_HIGHCPU_32'
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 3600s
