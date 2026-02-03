@@ -118,25 +118,22 @@ ENV HOME=/root
 # Switch to root for installation
 USER 0
 
-# Install EPEL and RPM Fusion repositories for additional packages (including ffmpeg)
+# Install EPEL repository for additional packages
 RUN dnf install -y \
     https://dl.fedoraproject.org/pub/epel/epel-release-latest-9.noarch.rpm \
-    && dnf install -y \
-    https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-9.noarch.rpm \
     && dnf clean all
 
 # Install system dependencies using dnf
+# Note: ffmpeg skipped (requires libSDL2 not available in UBI), curl skipped (curl-minimal already installed)
 RUN dnf install -y --setopt=install_weak_deps=False \
     git \
     gcc \
     gcc-c++ \
     make \
     pandoc \
-    curl \
     jq \
     python3-devel \
     nmap-ncat \
-    ffmpeg-free \
     libSM \
     libXext \
     && dnf clean all
