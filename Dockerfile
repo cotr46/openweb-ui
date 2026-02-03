@@ -218,6 +218,7 @@
 
 # syntax=docker/dockerfile:1
 # Initialize device type args
+ARG BUILDPLATFORM=linux/amd64
 ARG USE_CUDA=false
 ARG USE_OLLAMA=false
 ARG USE_SLIM=false
@@ -232,7 +233,7 @@ ARG UID=1001
 ARG GID=0
 
 ######## WebUI frontend ########
-# FROM --platform=$BUILDPLATFORM node:22-alpine3.20 AS frontend-build
+FROM --platform=$BUILDPLATFORM node:22-alpine3.20 AS frontend-build
 ARG BUILD_HASH
 
 WORKDIR /app
