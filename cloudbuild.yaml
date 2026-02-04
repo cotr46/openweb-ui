@@ -1,32 +1,100 @@
+# ==========================================
+# Cloud Build - Open WebUI (Nexus) - RHEL UBI 9
+# ==========================================
+# 
+# Prerequisites:
+# 1. Clone Open WebUI repo to Cloud Source Repositories or use GitHub trigger
+# 2. Place this Dockerfile in the repo root
+# 3. Ensure Artifact Registry repo 'openwebui' exists in asia-southeast2
+#
+# Manual trigger:
+#   gcloud builds submit --config=cloudbuild.yaml --project=$PROJECT_ID
+#
+# ==========================================
+
 steps:
-  # Build the container image
+  # Step 1: Build Docker image with security hardening
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'build'
     args:
       - 'build'
+      - '-t'
+      - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:$COMMIT_SHA'
       - '-t'
       - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:rhel-ubi9'
       - '-t'
       - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:latest'
       - '--build-arg'
       - 'USE_SLIM=true'
+      - '--build-arg'
+      - 'USE_PERMISSION_HARDENING=true'
+      - '--build-arg'
+      - 'BUILD_HASH=$COMMIT_SHA'
+      - '--build-arg'
+      - 'UID=1001'
+      - '--build-arg'
+      - 'GID=0'
       - '-f'
       - 'Dockerfile'
       - '.'
     timeout: 3600s
 
-  # Push the container image to Artifact Registry
+  # Step 2: Push image with commit SHA tag
   - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-sha'
     args:
       - 'push'
-      - '--all-tags'
-      - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun'
+      - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:$COMMIT_SHA'
+    waitFor: ['build']
 
+  # Step 3: Push image with rhel-ubi9 tag
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-ubi9'
+    args:
+      - 'push'
+      - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:rhel-ubi9'
+    waitFor: ['build']
+
+  # Step 4: Push image with latest tag
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-latest'
+    args:
+      - 'push'
+      - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:latest'
+    waitFor: ['build']
+
+  # Step 5: (Optional) Vulnerability scan
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'vulnerability-scan'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🔍 Scanning image for vulnerabilities..."
+        gcloud artifacts docker images scan \
+          asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:$COMMIT_SHA \
+          --location=asia-southeast2 \
+          --format="json" > /workspace/scan-results.json || true
+        echo "✅ Scan complete. Results saved to scan-results.json"
+        cat /workspace/scan-results.json | jq '.response.scan' || true
+    waitFor: ['push-sha']
+    allowFailure: true
+
+# Images to be stored in Artifact Registry
 images:
+  - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:$COMMIT_SHA'
   - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:rhel-ubi9'
   - 'asia-southeast2-docker.pkg.dev/$PROJECT_ID/openwebui/openwebui-cloudrun:latest'
 
+# Build options
 options:
   machineType: 'E2_HIGHCPU_32'
   logging: CLOUD_LOGGING_ONLY
+  diskSizeGb: 100
 
+# Total timeout (1 hour)
 timeout: 3600s
+
+# Substitutions (can be overridden)
+substitutions:
+  _REGION: 'asia-southeast2'
