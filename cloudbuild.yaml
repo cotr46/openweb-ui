@@ -94,7 +94,3 @@ options:
 
 # Total timeout (1 hour)
 timeout: 3600s
-
-# Substitutions (can be overridden)
-substitutions:
-  _REGION: 'asia-southeast2'
